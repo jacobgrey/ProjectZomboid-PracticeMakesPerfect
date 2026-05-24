@@ -3,13 +3,18 @@ require "Definitions/PracticeMakesPerfect_Log"
 PMP = PMP or {}
 PMP.TileCheck = PMP.TileCheck or {}
 
+-- All methods below grepped in vanilla:
+--   isFreeOrMidair(bool)  - ISBuildIsoEntity.lua, ISBuildingObject.lua
+--   isSolid() / isSolidTrans() - ISCampingMenu.lua, ISPlace3DItemCursor.lua
+--   HasStairs() - ISWoodenFloor.lua
+--   getMovingObjects() - ISVehicleTrailerUtils.lua, campingCampfire.lua
 local function squareIsClearFloor(sq)
     if not sq then return false end
-    if not sq:isFreeOrMidNav(true) then return false end
+    if not sq:isFreeOrMidair(true) then return false end
     if sq:HasStairs() then return false end
-    if sq:isSolid() then return false end
-    if sq:isBlockedTo(sq) then return false end
-    if sq:getMovingObjects() and sq:getMovingObjects():size() > 0 then return false end
+    if sq:isSolid() or sq:isSolidTrans() then return false end
+    local moving = sq:getMovingObjects()
+    if moving and moving:size() > 0 then return false end
     return true
 end
 

@@ -55,15 +55,11 @@ function G.hasNeedleThreadAndPatchableClothing(player)
     return true
 end
 
+-- :isRanged() verified on HandWeapon (ISEquipWeaponAction.lua).
 local function itemIsFirearm(it)
     if not it then return false end
     if not it.isRanged then return false end
     return it:isRanged()
-end
-
-local function itemIsMagazine(it)
-    if not it then return false end
-    return it:getScriptItem() and it:getScriptItem():getAmmoType() and it:getScriptItem():getMaxAmmo() and it:getScriptItem():getMaxAmmo() > 0 and not itemIsFirearm(it)
 end
 
 function G.hasFirearmAny(player)
@@ -77,34 +73,36 @@ function G.hasEquippedFirearm(player)
     return false, "Equip a firearm in your primary hand"
 end
 
+-- :getAmmoType() on InventoryItem returns an AmmoType object whose :getItemKey() yields
+-- the full item type string (verified in ISReloadWeaponAction.lua and ISUnloadBulletsFromMagazine.lua).
 function G.hasReloadableFirearmOrMagazineWithAmmo(player)
     local ok = G.hasFirearmAny(player)
     if not ok then return false, "Need a firearm or magazine" end
 
-    local foundCompatibleAmmo = false
     local items = inv(player):getItems()
     for i = 0, items:size() - 1 do
         local it = items:get(i)
-        if it:getScriptItem() and it:getScriptItem():getAmmoType() then
-            local ammoType = it:getScriptItem():getAmmoType()
-            if inv(player):containsTypeRecurse(ammoType) then
-                foundCompatibleAmmo = true
-                break
+        if it and it.getAmmoType then
+            local ammoType = it:getAmmoType()
+            if ammoType and ammoType.getItemKey then
+                local ammoKey = ammoType:getItemKey()
+                if ammoKey and inv(player):containsTypeRecurse(ammoKey) then
+                    return true
+                end
             end
         end
     end
-    if not foundCompatibleAmmo then return false, "Need matching ammo" end
-    return true
+    return false, "Need matching ammo"
 end
 
 function G.hasAnyBandage(player)
+    -- isCanBandage() is verified on InventoryItem (ISInventoryPane.lua, ISInventoryPaneContextMenu.lua).
+    -- Covers both clean and dirty bandages via the same predicate.
+    if firstItemMatchingRecurse(player, function(it)
+        return it and it.isCanBandage and it:isCanBandage()
+    end) then return true end
     if G.hasTypeRecurse(player, "Base.Bandage") then return true end
     if G.hasTypeRecurse(player, "Base.BandageDirty") then return true end
-    if G.hasTagRecurse(player, "reusablebandage") then return true end
-    if firstItemMatchingRecurse(player, function(it)
-        local si = it:getScriptItem()
-        return si and si.getCanBandage and si:getCanBandage()
-    end) then return true end
     return false, "Need a bandage (clean or dirty)"
 end
 
