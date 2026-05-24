@@ -17,3 +17,13 @@ option PracticeMakesPerfect.BoredomPerMinute
     page = PracticeMakesPerfect,
     translation = PMP_BoredomPerMinute,
 }
+
+option PracticeMakesPerfect.LogLevel
+{
+    type = integer,
+    default = 3,
+    min = 1,
+    max = 5,
+    page = PracticeMakesPerfect,
+    translation = PMP_LogLevel,
+}

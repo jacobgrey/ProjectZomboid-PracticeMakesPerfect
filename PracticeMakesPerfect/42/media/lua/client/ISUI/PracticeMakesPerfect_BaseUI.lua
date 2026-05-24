@@ -1,4 +1,5 @@
 require "ISUI/ISPanelJoypad"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PracticeMakesPerfect_BaseUI = ISPanelJoypad:derive("PracticeMakesPerfect_BaseUI")
 
@@ -116,17 +117,20 @@ end
 function PracticeMakesPerfect_BaseUI:populateDrills()
     self.drillsList:clear()
     self.drillOrder = {}
+    local skipped = 0
     for key, drill in pairs(self.drillTable) do
         if drill.perk ~= nil then
             table.insert(self.drillOrder, { key = key, drill = drill })
         else
-            print("[PMP] Drill " .. tostring(key) .. " skipped — perk not present in this PZ build")
+            skipped = skipped + 1
+            PMP.logWarn("UI populate: drill '%s' skipped (perk nil in this PZ build)", key)
         end
     end
     table.sort(self.drillOrder, function(a, b) return a.drill.name < b.drill.name end)
     for _, entry in ipairs(self.drillOrder) do
         self:addDrillToList(entry.key, entry.drill)
     end
+    PMP.logInfo("UI '%s' populated: %d drills shown, %d skipped", self.title or "?", #self.drillOrder, skipped)
 end
 
 function PracticeMakesPerfect_BaseUI:addDrillToList(key, drill)
@@ -136,15 +140,21 @@ function PracticeMakesPerfect_BaseUI:addDrillToList(key, drill)
     if drill.gate then
         ok, reason = drill.gate(self.player)
     end
+    local why = nil
     if not ok then
-        enabled = false
-        text = text .. " — " .. tostring(reason or "unavailable")
+        enabled = false; why = reason or "unavailable"
+        text = text .. " — " .. tostring(why)
     elseif PMP.Drills.belowMin(self.player, drill) then
-        enabled = false
+        enabled = false; why = "level<min(" .. tostring(drill.levelMin) .. ")"
         text = text .. " — Reach level " .. tostring(drill.levelMin) .. " first"
     elseif PMP.Drills.atOrAboveCap(self.player, drill) then
-        enabled = false
+        enabled = false; why = "level>=cap(" .. tostring(drill.levelCap) .. ")"
         text = text .. " — Capped at level " .. tostring(drill.levelCap)
+    end
+    if enabled then
+        PMP.logDebug("  Drill '%s' enabled", key)
+    else
+        PMP.logDebug("  Drill '%s' disabled: %s", key, tostring(why))
     end
     self.drillsList:addOption(text, key, nil, enabled)
 end
@@ -266,17 +276,26 @@ function PracticeMakesPerfect_BaseUI:additionalStartChecks() end
 function PracticeMakesPerfect_BaseUI:onClick(button)
     if button.internal == "OK" then
         local d = self.selectedDrill
-        if not d then return end
-        local action = self.actionClass:new(self.player, self.selectedDrillKey, d, tonumber(self.exeTime:getInternalText()))
+        if not d then
+            PMP.logWarn("OK clicked with no selected drill")
+            return
+        end
+        local mins = tonumber(self.exeTime:getInternalText())
+        PMP.logInfo("OK: queuing drill='%s' duration=%dm via %s", self.selectedDrillKey, mins, self.title or "?")
+        local action = self.actionClass:new(self.player, self.selectedDrillKey, d, mins)
         ISTimedActionQueue.addGetUpAndThen(self.player, action)
         self:setVisible(false)
         self:removeFromUIManager()
     elseif button.internal == "CLOSE" then
+        PMP.logDebug("UI '%s' closed via Close button", self.title or "?")
         self:setVisible(false)
         self:removeFromUIManager()
     elseif button.internal == "CANCEL" then
         local actionQueue = ISTimedActionQueue.getTimedActionQueue(self.player)
         local currentAction = actionQueue.queue[1]
-        if currentAction and currentAction.drill then currentAction:forceStop() end
+        if currentAction and currentAction.drill then
+            PMP.logInfo("Cancel: force-stopping active drill='%s'", currentAction.drillKey or "?")
+            currentAction:forceStop()
+        end
     end
 end

@@ -1,6 +1,10 @@
+require "Definitions/PracticeMakesPerfect_Log"
+
 PMP = PMP or {}
 PMP.ItemGates = PMP.ItemGates or {}
 local G = PMP.ItemGates
+
+PMP.logInfo("ItemGates module loading")
 
 local function inv(player) return player:getInventory() end
 

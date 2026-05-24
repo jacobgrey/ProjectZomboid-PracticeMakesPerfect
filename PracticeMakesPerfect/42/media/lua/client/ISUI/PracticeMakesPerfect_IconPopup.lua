@@ -1,5 +1,6 @@
 require "ISUI/ISPanel"
 require "ISUI/ISToolTip"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PMP = PMP or {}
 PMP.PopupOffset = 5
@@ -127,15 +128,21 @@ end
 
 function P:onMouseDown(x, y)
     self:hideTooltip()
-    if not self.isExpanded then return true end
+    if not self.isExpanded then
+        PMP.logDebug("IconPopup click ignored (not expanded)")
+        return true
+    end
     if self:isHoveredOver(1) then
+        PMP.logInfo("Opening Exercise UI from PMP popup")
         local ui = ISFitnessUI:new(0, 0, 600, 350, self.player)
         ui:initialise()
         ui:addToUIManager()
         ISFitnessUI.instance[self.playerNum + 1] = ui
     elseif self:isHoveredOver(2) then
+        PMP.logInfo("Opening Practice UI from PMP popup")
         PracticeMakesPerfect_PracticeUI.openFor(self.player)
     elseif self:isHoveredOver(3) then
+        PMP.logInfo("Opening Drills UI from PMP popup")
         PracticeMakesPerfect_DrillsUI.openFor(self.player)
     end
     return true

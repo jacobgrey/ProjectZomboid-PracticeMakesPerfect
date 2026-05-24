@@ -1,9 +1,12 @@
+require "Definitions/PracticeMakesPerfect_Log"
 require "Definitions/PracticeMakesPerfect_ItemGates"
 
 PMP = PMP or {}
 PMP.Drills = PMP.Drills or {}
 
 local Gates = PMP.ItemGates
+
+PMP.logInfo("Drills module loading")
 
 local function levelScaledLoss(baseChance)
     return function(player, perk)
@@ -253,4 +256,21 @@ end
 function PMP.Drills.belowMin(player, drill)
     if not drill.levelMin then return false end
     return (player:getPerkLevel(drill.perk) or 0) < drill.levelMin
+end
+
+local function countWithNilPerks(t)
+    local total, nilPerks = 0, 0
+    for _, drill in pairs(t) do
+        total = total + 1
+        if drill.perk == nil then nilPerks = nilPerks + 1 end
+    end
+    return total, nilPerks
+end
+
+local practiceTotal, practiceNil = countWithNilPerks(PMP.Drills.Practice)
+local drillsTotal, drillsNil = countWithNilPerks(PMP.Drills.Drills)
+PMP.logInfo("Drills registered: Practice=%d (nil perks: %d), Drills=%d (nil perks: %d)",
+    practiceTotal, practiceNil, drillsTotal, drillsNil)
+if practiceNil > 0 or drillsNil > 0 then
+    PMP.logWarn("Some drills have nil perks - they will be hidden from the UI. Check your PZ build version (mod targets B42.18+).")
 end

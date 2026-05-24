@@ -1,3 +1,5 @@
+require "Definitions/PracticeMakesPerfect_Log"
+
 PMP = PMP or {}
 PMP.TileCheck = PMP.TileCheck or {}
 

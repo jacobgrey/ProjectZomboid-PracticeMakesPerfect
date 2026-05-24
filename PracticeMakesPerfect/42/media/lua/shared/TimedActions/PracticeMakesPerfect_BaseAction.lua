@@ -1,4 +1,5 @@
 require "TimedActions/ISBaseTimedAction"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PracticeMakesPerfect_BaseAction = ISBaseTimedAction:derive("PracticeMakesPerfect_BaseAction")
 
@@ -15,6 +16,9 @@ function PracticeMakesPerfect_BaseAction:new(character, drillKey, drill, duratio
     o.caloriesModifier = 4
     o.repnb = 0
     o.lastBoredomTick = o.startMS
+    PMP.logInfo("Action constructed: drill=%s duration=%dm periodMs=%d sittable=%s allowAiming=%s",
+        drillKey, o.durationMinutes, drill.periodMs or 1500,
+        tostring(drill.sittable), tostring(drill.allowAiming))
     return o
 end
 
@@ -54,15 +58,23 @@ function PracticeMakesPerfect_BaseAction:start()
     local anim = self:resolveAnim()
     if anim then
         local ok, err = pcall(function() self:setActionAnim(anim) end)
-        if not ok then print("[PMP] setActionAnim failed for " .. tostring(anim) .. ": " .. tostring(err)) end
+        if ok then
+            PMP.logDebug("Action.start: drill=%s anim='%s' applied", self.drillKey, anim)
+        else
+            PMP.logWarn("setActionAnim failed for drill=%s anim='%s': %s", self.drillKey, tostring(anim), tostring(err))
+        end
+    else
+        PMP.logDebug("Action.start: drill=%s no anim resolved", self.drillKey)
     end
 end
 
 function PracticeMakesPerfect_BaseAction:stop()
+    PMP.logInfo("Action.stop: drill=%s reps=%d", self.drillKey, self.repnb)
     ISBaseTimedAction.stop(self)
 end
 
 function PracticeMakesPerfect_BaseAction:perform()
+    PMP.logInfo("Action.perform (completed): drill=%s reps=%d duration=%dm", self.drillKey, self.repnb, self.durationMinutes)
     ISBaseTimedAction.perform(self)
 end
 
@@ -82,8 +94,10 @@ end
 
 function PracticeMakesPerfect_BaseAction:exeLooped()
     self.repnb = self.repnb + 1
+    PMP.logDebug("Rep #%d: drill=%s", self.repnb, self.drillKey)
 
     if self.character:getMoodles():getMoodleLevel(MoodleType.ENDURANCE) > 2 then
+        PMP.logInfo("Force-stop: endurance moodle > 2 mid-rep (drill=%s rep=%d)", self.drillKey, self.repnb)
         self:forceStop()
         return
     end
@@ -98,11 +112,24 @@ function PracticeMakesPerfect_BaseAction:beforeAward() end
 
 function PracticeMakesPerfect_BaseAction:awardXp()
     local d = self.drill
-    if PMP.Drills.atOrAboveCap(self.character, d) then return end
-    if PMP.Drills.belowMin(self.character, d) then return end
+    local perkName = (d.perk and d.perk.getName and d.perk:getName()) or "?"
+    local lvl = self.character:getPerkLevel(d.perk) or -1
+    if PMP.Drills.atOrAboveCap(self.character, d) then
+        PMP.logTrace("XP skipped (capped at level %d): drill=%s perk=%s lvl=%d",
+            d.levelCap, self.drillKey, perkName, lvl)
+        return
+    end
+    if PMP.Drills.belowMin(self.character, d) then
+        PMP.logTrace("XP skipped (below min level %d): drill=%s perk=%s lvl=%d",
+            d.levelMin, self.drillKey, perkName, lvl)
+        return
+    end
     addXp(self.character, d.perk, d.xpPerRep)
+    PMP.logTrace("XP +%.2f -> %s (lvl %d)", d.xpPerRep, perkName, lvl)
     if d.secondaryPerk and d.secondaryXp then
         addXp(self.character, d.secondaryPerk, d.secondaryXp)
+        local sName = (d.secondaryPerk.getName and d.secondaryPerk:getName()) or "?"
+        PMP.logTrace("XP +%.2f -> %s (secondary)", d.secondaryXp, sName)
     end
 end
 
@@ -111,7 +138,10 @@ function PracticeMakesPerfect_BaseAction:applyConsumption()
     if not d.consume then return end
     local chance = PMP.Drills.getEffectiveLossChance(self.character, d)
     if chance <= 0 then return end
-    if ZombRand(10000) >= math.floor(chance * 10000) then return end
+    if ZombRand(10000) >= math.floor(chance * 10000) then
+        PMP.logTrace("Consumption: no roll hit (chance=%.3f)", chance)
+        return
+    end
 
     local inv = self.character:getInventory()
     if d.consume.transform then
@@ -119,12 +149,21 @@ function PracticeMakesPerfect_BaseAction:applyConsumption()
         if item then
             inv:Remove(item)
             inv:AddItem(d.consume.transform.to)
+            PMP.logDebug("Consumption: transformed %s -> %s (chance=%.3f)",
+                d.consume.transform.from, d.consume.transform.to, chance)
+        else
+            PMP.logDebug("Consumption: roll hit but no %s in inventory", d.consume.transform.from)
         end
         return
     end
     if d.consume.item then
         local item = inv:getFirstTypeRecurse(d.consume.item)
-        if item then inv:Remove(item) end
+        if item then
+            inv:Remove(item)
+            PMP.logDebug("Consumption: consumed 1x %s (chance=%.3f)", d.consume.item, chance)
+        else
+            PMP.logDebug("Consumption: roll hit but no %s in inventory", d.consume.item)
+        end
     end
 end
 
@@ -139,32 +178,20 @@ function PracticeMakesPerfect_BaseAction:applyBoredomTick()
     bd:setBoredomLevel((bd:getBoredomLevel() or 0) + bpm * (elapsedSec / 60))
 end
 
+function PracticeMakesPerfect_BaseAction:cancelWith(reason)
+    PMP.logInfo("Force-stop: drill=%s reason=%s rep=%d", self.drillKey, reason, self.repnb)
+    self:forceStop()
+end
+
 function PracticeMakesPerfect_BaseAction:update()
-    if self.character:isClimbing() then
-        self:forceStop()
-        return
-    end
-    if self.character:getVehicle() then
-        self:forceStop()
-        return
-    end
-    if not self.drill.allowAiming and self.character:isAiming() then
-        self:forceStop()
-        return
-    end
-    if not self.drill.sittable and self.character:isSittingOnFurniture() then
-        self:forceStop()
-        return
-    end
-    if self.character:pressedMovement(true) then
-        self:forceStop()
-        return
-    end
-    if self.character:getMoodles():getMoodleLevel(MoodleType.ENDURANCE) > 2 then
-        self:forceStop()
-        return
-    end
+    if self.character:isClimbing() then return self:cancelWith("climbing") end
+    if self.character:getVehicle() then return self:cancelWith("entered_vehicle") end
+    if not self.drill.allowAiming and self.character:isAiming() then return self:cancelWith("aiming") end
+    if not self.drill.sittable and self.character:isSittingOnFurniture() then return self:cancelWith("sat_down") end
+    if self.character:pressedMovement(true) then return self:cancelWith("movement_input") end
+    if self.character:getMoodles():getMoodleLevel(MoodleType.ENDURANCE) > 2 then return self:cancelWith("endurance_exhausted") end
     if getTimestampMs() >= self.endMS then
+        PMP.logInfo("Action complete: drill=%s reps=%d", self.drillKey, self.repnb)
         self:forceComplete()
         return
     end

@@ -2,8 +2,10 @@ require "ISUI/ISEquippedItem"
 require "ISUI/PracticeMakesPerfect_IconPopup"
 require "ISUI/PracticeMakesPerfect_PracticeUI"
 require "ISUI/PracticeMakesPerfect_DrillsUI"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PMP = PMP or {}
+PMP.logInfo("SidebarPatch loading - wrapping ISEquippedItem methods")
 
 local function Override(obj, method, factory) obj[method] = factory(obj[method]) end
 
@@ -30,17 +32,24 @@ local F = {}
 F.initialise = function(orig) return function(self)
     orig(self)
     if self.chr:getPlayerNum() ~= 0 then return end
-    if not self.zoneBtn then return end
+    if not self.zoneBtn then
+        PMP.logWarn("ISEquippedItem.initialise: zoneBtn not present, skipping PMP icon")
+        return
+    end
     if self.pmpPopup then return end
 
     local width = iconWidth()
-    local x = self:getAbsoluteX() + self.zoneBtn:getX() + (width * 3) + iconGap()
+    local gap = iconGap()
+    local x = self:getAbsoluteX() + self.zoneBtn:getX() + (width * 3) + gap
     local y = self:getAbsoluteY() + self.zoneBtn:getY()
 
     self.pmpPopup = PMP.IconPopup:new(x, y, self.chr)
     self.pmpPopup:initialise()
     self.pmpPopup:addToUIManager()
     self.pmpPopup:setVisible(true)
+    PMP.logInfo("PMP sidebar icon added at (%d,%d) width=%d gap=%d (neighbor mods detected: %s)",
+        x, y, width, gap,
+        tostring((getActivatedMods() and (getActivatedMods():contains("cf_home") or getActivatedMods():contains("TrapManager"))) or false))
 end end
 
 F.prerender = function(orig) return function(self)
@@ -68,6 +77,7 @@ end end
 
 F.removeFromUIManager = function(orig) return function(self)
     if self.pmpPopup then
+        PMP.logInfo("PMP sidebar icon removed (ISEquippedItem teardown)")
         self.pmpPopup:removeFromUIManager()
         self.pmpPopup = nil
     end

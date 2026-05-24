@@ -1,13 +1,26 @@
 require "Definitions/FitnessExercises"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PMP = PMP or {}
 
 local function registerExercise(key, def)
     if not FitnessExercises or not FitnessExercises.exercisesType then
-        print("[PMP] FitnessExercises table not found; cannot register " .. key)
+        PMP.logError("FitnessExercises table not found; cannot register %s", key)
         return
     end
+    local resolvedPerks, missing = {}, {}
+    for i, p in ipairs(def.pmpAwardPerks or {}) do
+        if p then
+            table.insert(resolvedPerks, (p.getName and p:getName()) or tostring(p))
+        else
+            table.insert(missing, tostring(i))
+        end
+    end
     FitnessExercises.exercisesType[key] = def
+    PMP.logInfo("Registered fitness exercise '%s' -> perks: [%s]%s",
+        key,
+        table.concat(resolvedPerks, ", "),
+        (#missing > 0) and (" (nil at indices: " .. table.concat(missing, ",") .. ")") or "")
 end
 
 local function init()
@@ -46,4 +59,7 @@ local function init()
     })
 end
 
-Events.OnGameStart.Add(init)
+Events.OnGameStart.Add(function()
+    PMP.logInfo("FitnessExtensions: registering PMP exercises on OnGameStart")
+    init()
+end)

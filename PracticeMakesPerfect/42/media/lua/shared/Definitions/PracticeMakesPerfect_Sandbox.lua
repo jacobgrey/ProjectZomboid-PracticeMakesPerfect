@@ -1,4 +1,7 @@
+require "Definitions/PracticeMakesPerfect_Log"
+
 PMP = PMP or {}
+PMP.logInfo("Sandbox module loading")
 
 PMP.SandboxDefaults = {
     ExerciseIncreasesBoredom = true,

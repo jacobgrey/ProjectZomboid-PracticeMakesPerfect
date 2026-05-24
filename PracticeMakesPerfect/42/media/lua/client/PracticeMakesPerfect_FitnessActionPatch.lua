@@ -1,6 +1,9 @@
 require "TimedActions/ISFitnessAction"
+require "Definitions/PracticeMakesPerfect_Log"
 
 PMP = PMP or {}
+
+PMP.logInfo("FitnessActionPatch loading - wrapping ISFitnessAction:serverStart and :exeLooped")
 
 local PMP_PERIODS = {
     pmp_stationary_jog = 1200,
@@ -12,6 +15,7 @@ local orig_serverStart = ISFitnessAction.serverStart
 function ISFitnessAction:serverStart()
     local period = PMP_PERIODS[self.exeDataType]
     if period then
+        PMP.logInfo("Fitness exercise '%s' starting with PMP period=%dms", self.exeDataType, period)
         emulateAnimEvent(self.netAction, period, "ActiveAnimLooped", nil)
         return
     end
@@ -27,6 +31,8 @@ function ISFitnessAction:exeLooped()
         if perk then
             local weight = (def.pmpAwardWeights and def.pmpAwardWeights[i]) or 1.0
             addXp(self.character, perk, weight)
+            PMP.logTrace("Fitness ext rep: +%.2f -> %s (exercise=%s)",
+                weight, (perk.getName and perk:getName()) or "?", self.exeDataType)
         end
     end
     if PMP.getSandboxOption and PMP.getSandboxOption("ExerciseIncreasesBoredom") then

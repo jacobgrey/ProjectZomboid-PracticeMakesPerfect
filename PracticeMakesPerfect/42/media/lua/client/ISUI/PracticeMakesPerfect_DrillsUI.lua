@@ -13,10 +13,16 @@ function PracticeMakesPerfect_DrillsUI:new(x, y, width, height, player)
 end
 
 function PracticeMakesPerfect_DrillsUI:additionalStartChecks()
-    local clear = PMP.TileCheck.threeByThreeClear(self.player)
+    local clear, dx, dy = PMP.TileCheck.threeByThreeClear(self.player)
     if not clear then
         self.ok.enable = false
         self.ok.tooltip = "Need a clear 3x3 area to swing safely"
+        if not self._loggedTileBlock or (dx ~= self._loggedDx) or (dy ~= self._loggedDy) then
+            PMP.logDebug("Drills disabled: tile clear check failed at offset (dx=%d, dy=%d)", dx or 0, dy or 0)
+            self._loggedTileBlock = true; self._loggedDx = dx; self._loggedDy = dy
+        end
+    else
+        self._loggedTileBlock = false
     end
 end
 
