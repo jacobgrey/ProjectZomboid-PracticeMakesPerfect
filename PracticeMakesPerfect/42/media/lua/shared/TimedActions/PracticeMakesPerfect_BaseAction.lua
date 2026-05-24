@@ -169,13 +169,13 @@ end
 
 function PracticeMakesPerfect_BaseAction:applyBoredomTick()
     if not PMP.getSandboxOption("ExerciseIncreasesBoredom") then return end
-    local bd = self.character:getBodyDamage()
-    if not bd then return end
+    local stats = self.character:getStats()
+    if not stats or not CharacterStat or not CharacterStat.BOREDOM then return end
     local now = getTimestampMs()
     local elapsedSec = (now - self.lastBoredomTick) / 1000
     self.lastBoredomTick = now
     local bpm = PMP.getSandboxOption("BoredomPerMinute") or 0.5
-    bd:setBoredomLevel((bd:getBoredomLevel() or 0) + bpm * (elapsedSec / 60))
+    stats:add(CharacterStat.BOREDOM, bpm * (elapsedSec / 60))
 end
 
 function PracticeMakesPerfect_BaseAction:cancelWith(reason)

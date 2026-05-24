@@ -5,91 +5,56 @@ require "ISUI/PracticeMakesPerfect_DrillsUI"
 require "Definitions/PracticeMakesPerfect_Log"
 
 PMP = PMP or {}
-PMP.logInfo("SidebarPatch loading - wrapping ISEquippedItem methods")
+PMP.logInfo("SidebarPatch loading - wrapping ISEquippedItem methods (anchor: healthBtn)")
 
 local function Override(obj, method, factory) obj[method] = factory(obj[method]) end
 
-local function iconWidth()
-    local core = getCore()
-    local size = core:getOptionSidebarSize()
-    if size == 6 then size = core:getOptionFontSizeReal() - 1 end
-    if size == 1 then return 48 end
-    if size == 2 then return 64 end
-    if size == 3 then return 80 end
-    if size == 4 then return 96 end
-    if size == 5 then return 128 end
-    return 48
-end
-
--- Count how many sidebar slots are already occupied between zoneBtn and us, so we land
--- right after them instead of overlapping or leaving a big gap.
--- The convention used by cf_home and TrapManager: each addon occupies one icon-width slot
--- to the right of self.zoneBtn. We sit at slot (1 + active_neighbors).
-local function neighborSlotCount()
-    local mods = getActivatedMods()
-    if not mods then return 0 end
-    local n = 0
-    if mods:contains("cf_home") then n = n + 1 end
-    if mods:contains("TrapManager") then n = n + 1 end
-    return n
-end
-
-local SLOT_INNER_GAP = 4  -- small gap between adjacent icons
-
-local F = {}
+-- Small inter-icon gap to match the visual spacing between vanilla sidebar buttons.
+local SLOT_INNER_GAP = 4
 
 local function computePopupPosition(self)
-    local width = iconWidth()
-    local neighbors = neighborSlotCount()
-    -- Land at slot (1 + neighbors). Slot 0 is zoneBtn itself; slot 1 is one icon-width
-    -- to the right, etc.
-    local slot = 1 + neighbors
-    local x = self:getAbsoluteX() + self.zoneBtn:getX() + slot * (width + SLOT_INNER_GAP)
-    local y = self:getAbsoluteY() + self.zoneBtn:getY()
-    return x, y, width, neighbors
+    -- Anchor to the heart (player info) button: our icons sit horizontally to its right.
+    -- This is the same pattern cf_home and TrapManager use against zoneBtn, just on a
+    -- different vanilla button.
+    local anchor = self.healthBtn
+    if not anchor then return nil end
+    local x = self:getAbsoluteX() + anchor:getX() + anchor:getWidth() + SLOT_INNER_GAP
+    local y = self:getAbsoluteY() + anchor:getY()
+    return x, y
 end
+
+local F = {}
 
 F.initialise = function(orig) return function(self)
     orig(self)
     if self.chr:getPlayerNum() ~= 0 then return end
-    if not self.zoneBtn then
-        PMP.logWarn("ISEquippedItem.initialise: zoneBtn not present, skipping PMP icon")
+    if not self.healthBtn then
+        PMP.logWarn("ISEquippedItem.initialise: healthBtn not present, skipping PMP icons")
         return
     end
     if self.pmpPopup then return end
 
-    local x, y, width, neighbors = computePopupPosition(self)
+    local x, y = computePopupPosition(self)
+    if not x then return end
 
     self.pmpPopup = PMP.IconPopup:new(x, y, self.chr)
     self.pmpPopup:initialise()
     self.pmpPopup:addToUIManager()
     self.pmpPopup:setVisible(true)
-    PMP.logInfo("PMP sidebar icon added at (%d,%d) width=%d neighbors=%d (slot=%d)",
-        x, y, width, neighbors, 1 + neighbors)
+    PMP.logInfo("PMP sidebar icons added at (%d,%d) anchored to healthBtn", x, y)
 end end
 
 F.prerender = function(orig) return function(self)
     orig(self)
-    if not (self.zoneBtn and self.pmpPopup) then return end
+    if not (self.healthBtn and self.pmpPopup) then return end
 
+    -- Keep tracking healthBtn's live position so we stay aligned when the sidebar
+    -- shifts (size changes, oscillation effect, layout reflow).
     local x, y = computePopupPosition(self)
-    self.pmpPopup:setX(x)
-    self.pmpPopup:setY(y)
-
-    -- Hover-driven expansion. Because the popup is always at full expanded width, a hover
-    -- anywhere along the icon strip keeps it open - no race between width-grow and hit-test.
-    if self.pmpPopup:isAnyHovered() then
-        if not self.pmpPopup.isExpanded then
-            PMP.logDebug("PMP popup expanding (hover entered)")
-        end
-        self.pmpPopup.isExpanded = true
+    if x then
+        self.pmpPopup:setX(x)
+        self.pmpPopup:setY(y)
         self.pmpPopup:bringToTop()
-    else
-        if self.pmpPopup.isExpanded then
-            PMP.logDebug("PMP popup collapsing (hover exited)")
-        end
-        self.pmpPopup.isExpanded = false
-        self.pmpPopup:hideTooltip()
     end
 
     if "Tutorial" == getCore():getGameMode() then self.pmpPopup:setVisible(false) end
@@ -97,7 +62,7 @@ end end
 
 F.removeFromUIManager = function(orig) return function(self)
     if self.pmpPopup then
-        PMP.logInfo("PMP sidebar icon removed (ISEquippedItem teardown)")
+        PMP.logInfo("PMP sidebar icons removed (ISEquippedItem teardown)")
         self.pmpPopup:removeFromUIManager()
         self.pmpPopup = nil
     end

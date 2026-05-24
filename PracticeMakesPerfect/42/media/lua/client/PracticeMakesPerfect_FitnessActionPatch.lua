@@ -62,12 +62,12 @@ function ISFitnessAction:exeLooped()
         end
     end
     if PMP.getSandboxOption and PMP.getSandboxOption("ExerciseIncreasesBoredom") then
-        local bd = self.character:getBodyDamage()
-        if bd then
+        local stats = self.character:getStats()
+        if stats and CharacterStat and CharacterStat.BOREDOM then
             local bpm = PMP.getSandboxOption("BoredomPerMinute") or 0.5
             local cfg = PMP_EXERCISES[self.exeDataType]
             local periodMs = (cfg and cfg.period) or 1500
-            bd:setBoredomLevel((bd:getBoredomLevel() or 0) + bpm * (periodMs / 60000))
+            stats:add(CharacterStat.BOREDOM, bpm * (periodMs / 60000))
         end
     end
 end

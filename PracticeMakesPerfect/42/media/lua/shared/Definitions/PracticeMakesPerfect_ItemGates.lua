@@ -16,8 +16,20 @@ function G.hasTypeRecurse(player, fullType)
     return inv(player):containsTypeRecurse(fullType)
 end
 
-function G.hasTagRecurse(player, tag)
-    return inv(player):containsTagRecurse(tag)
+-- B42's containsTagRecurse(...) takes an ItemTag enum, NOT a string. Recipe scripts use
+-- string tags like "knittingneedles" but the Lua side has no string-keyed lookup. We
+-- iterate items recursively and compare against the tag list returned by item:getTags()
+-- (which is a Java collection of strings).
+function G.hasTagRecurse(player, tagString)
+    return inv(player):getFirstEvalRecurse(function(it)
+        if not it then return false end
+        local tags = it.getTags and it:getTags()
+        if not tags then return false end
+        for i = 0, tags:size() - 1 do
+            if tags:get(i) == tagString then return true end
+        end
+        return false
+    end) ~= nil
 end
 
 function G.hasKnittingNeedlesAndYarn(player)
