@@ -186,7 +186,9 @@ function PracticeMakesPerfect_BaseUI:selectedNewDrill()
     local d = self.selectedDrill
     local lines = {}
     if d.tooltip then table.insert(lines, d.tooltip) end
-    table.insert(lines, "Perk: " .. tostring(d.perk and d.perk:getName and d.perk:getName() or "skill"))
+    local perkName = "skill"
+    if d.perk and d.perk.getName then perkName = d.perk:getName() end
+    table.insert(lines, "Perk: " .. perkName)
     if d.levelMin then table.insert(lines, "Available from level " .. d.levelMin) end
     if d.levelCap then table.insert(lines, "XP gain stops at level " .. d.levelCap) end
     if d.consume and d.consume.item then table.insert(lines, "Consumes " .. d.consume.item .. " (skill-scaled loss)") end

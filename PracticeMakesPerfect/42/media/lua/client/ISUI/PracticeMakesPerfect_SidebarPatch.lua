@@ -21,13 +21,33 @@ local function iconWidth()
     return 48
 end
 
-local function iconGap()
+-- Count how many sidebar slots are already occupied between zoneBtn and us, so we land
+-- right after them instead of overlapping or leaving a big gap.
+-- The convention used by cf_home and TrapManager: each addon occupies one icon-width slot
+-- to the right of self.zoneBtn. We sit at slot (1 + active_neighbors).
+local function neighborSlotCount()
     local mods = getActivatedMods()
-    local hasNeighbor = (mods and (mods:contains("cf_home") or mods:contains("TrapManager")))
-    return hasNeighbor and 17 or 7
+    if not mods then return 0 end
+    local n = 0
+    if mods:contains("cf_home") then n = n + 1 end
+    if mods:contains("TrapManager") then n = n + 1 end
+    return n
 end
 
+local SLOT_INNER_GAP = 4  -- small gap between adjacent icons
+
 local F = {}
+
+local function computePopupPosition(self)
+    local width = iconWidth()
+    local neighbors = neighborSlotCount()
+    -- Land at slot (1 + neighbors). Slot 0 is zoneBtn itself; slot 1 is one icon-width
+    -- to the right, etc.
+    local slot = 1 + neighbors
+    local x = self:getAbsoluteX() + self.zoneBtn:getX() + slot * (width + SLOT_INNER_GAP)
+    local y = self:getAbsoluteY() + self.zoneBtn:getY()
+    return x, y, width, neighbors
+end
 
 F.initialise = function(orig) return function(self)
     orig(self)
@@ -38,36 +58,36 @@ F.initialise = function(orig) return function(self)
     end
     if self.pmpPopup then return end
 
-    local width = iconWidth()
-    local gap = iconGap()
-    local x = self:getAbsoluteX() + self.zoneBtn:getX() + (width * 3) + gap
-    local y = self:getAbsoluteY() + self.zoneBtn:getY()
+    local x, y, width, neighbors = computePopupPosition(self)
 
     self.pmpPopup = PMP.IconPopup:new(x, y, self.chr)
     self.pmpPopup:initialise()
     self.pmpPopup:addToUIManager()
     self.pmpPopup:setVisible(true)
-    PMP.logInfo("PMP sidebar icon added at (%d,%d) width=%d gap=%d (neighbor mods detected: %s)",
-        x, y, width, gap,
-        tostring((getActivatedMods() and (getActivatedMods():contains("cf_home") or getActivatedMods():contains("TrapManager"))) or false))
+    PMP.logInfo("PMP sidebar icon added at (%d,%d) width=%d neighbors=%d (slot=%d)",
+        x, y, width, neighbors, 1 + neighbors)
 end end
 
 F.prerender = function(orig) return function(self)
     orig(self)
     if not (self.zoneBtn and self.pmpPopup) then return end
 
-    local width = iconWidth()
-    local x = self:getAbsoluteX() + self.zoneBtn:getX() + (width * 3) + iconGap()
-    local y = self:getAbsoluteY() + self.zoneBtn:getY()
+    local x, y = computePopupPosition(self)
     self.pmpPopup:setX(x)
     self.pmpPopup:setY(y)
 
-    local mainHover = self.pmpPopup:isMainIconHovered()
-    local anyHover = self.pmpPopup:isAnyHovered()
-    if mainHover or (self.pmpPopup.isExpanded and anyHover) then
+    -- Hover-driven expansion. Because the popup is always at full expanded width, a hover
+    -- anywhere along the icon strip keeps it open - no race between width-grow and hit-test.
+    if self.pmpPopup:isAnyHovered() then
+        if not self.pmpPopup.isExpanded then
+            PMP.logDebug("PMP popup expanding (hover entered)")
+        end
         self.pmpPopup.isExpanded = true
         self.pmpPopup:bringToTop()
     else
+        if self.pmpPopup.isExpanded then
+            PMP.logDebug("PMP popup collapsing (hover exited)")
+        end
         self.pmpPopup.isExpanded = false
         self.pmpPopup:hideTooltip()
     end
