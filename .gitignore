@@ -1,0 +1,20 @@
+# Dropbox sync artifacts
+*.tmp
+*.tmp.*
+.dropbox*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PZ runtime junk that might end up next to a dev mod
+console.txt
+*.bak

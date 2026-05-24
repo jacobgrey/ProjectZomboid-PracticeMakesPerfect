@@ -1,0 +1,19 @@
+VERSION = 1,
+
+option PracticeMakesPerfect.ExerciseIncreasesBoredom
+{
+    type = boolean,
+    default = true,
+    page = PracticeMakesPerfect,
+    translation = PMP_ExerciseIncreasesBoredom,
+}
+
+option PracticeMakesPerfect.BoredomPerMinute
+{
+    type = double,
+    default = 0.5,
+    min = 0.0,
+    max = 5.0,
+    page = PracticeMakesPerfect,
+    translation = PMP_BoredomPerMinute,
+}

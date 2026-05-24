@@ -1,0 +1,10 @@
+id=PracticeMakesPerfect
+name=Practice Makes Perfect
+author=
+modversion=0.1.0
+versionMin=42.18.0
+
+description=Adds an Exercise-style UI for practicing skills that can be reasonably trained through repetitive non-destructive action: knit/unpick for Tailoring, load/unload for Reloading, weapon shadow-drills, dry-fire for Aiming, splinting and suturing for First Aid, and more. <LINE>
+description=No accelerated learning. XP rates are calibrated to match manual grinding. Material consumption (yarn, clay, suture material) scales with skill level. <LINE>
+description=Sandbox option to make practice generate Boredom. <LINE>
+description=Sidebar icon coexists cleanly with TrapManager and Home Inventory Improved.
