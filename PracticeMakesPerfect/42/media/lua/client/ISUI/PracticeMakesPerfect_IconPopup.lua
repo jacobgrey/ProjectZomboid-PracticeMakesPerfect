@@ -2,110 +2,137 @@ require "ISUI/ISPanel"
 require "ISUI/ISToolTip"
 require "Definitions/PracticeMakesPerfect_Log"
 
--- Mirror of cf_home / TrapManager pattern: this is an ISPanel that hosts our sidebar
--- icons next to a vanilla button (healthBtn). No hover popout - icons are always
--- visible and individually clickable. The "Popup" name is kept for naming parity with
--- those reference mods even though there is no visible expand.
+-- Hover-driven popup that extends horizontally from the heart (player info) button.
+-- Modeled directly on TrapManager's TM_TrapPopup: a single ISPanel covering the icon
+-- strip, with drawTextureScaled() per icon and onMouseUp() doing relative-X hit-tests.
+-- Visibility is controlled by ISEquippedItem:prerender (in SidebarPatch.lua) which
+-- shows the panel only when the mouse is inside the combined hover area.
 
 PMP = PMP or {}
 PMP.IconSpacing = 4
 
-local function getTextureDimension()
+local function getTextureWidth()
     local core = getCore()
     local size = core:getOptionSidebarSize()
     if size == 6 then size = core:getOptionFontSizeReal() - 1 end
-    local width = 48
-    if size == 2 then width = 64
-    elseif size == 3 then width = 80
-    elseif size == 4 then width = 96
-    elseif size == 5 then width = 128 end
-    return width
+    local TW = 48
+    if size == 2 then TW = 64
+    elseif size == 3 then TW = 80
+    elseif size == 4 then TW = 96
+    elseif size == 5 then TW = 128 end
+    return TW
 end
 
 PMP.IconPopup = PMP.IconPopup or ISPanel:derive("PMP_IconPopup")
 local P = PMP.IconPopup
 
 function P:new(x, y, player)
-    local o = ISPanel:new(x, y, 0, 0)
-    setmetatable(o, self)
-    self.__index = self
-    o.player = player
-    o.playerNum = player:getPlayerNum()
+    local TW = getTextureWidth()
+    local TH = math.floor(TW * 0.75)
+    -- Two icons side by side with one spacing gap between.
+    local w = (TW * 2) + PMP.IconSpacing
+    local o = ISPanel.new(self, x, y, w, TH)
+    o:setAnchorLeft(true); o:setAnchorRight(false)
+    o:setAnchorTop(true);  o:setAnchorBottom(false)
+    o.background = false
     o.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     o.borderColor = { r = 0, g = 0, b = 0, a = 0 }
-    o:reloadSidebarOptions()
+    o.player = player
+    o.playerNum = player:getPlayerNum()
+    o.TEXTURE_WIDTH = TW
+    o.TEXTURE_HEIGHT = TH
+
+    o.practiceIcon = getTexture("media/ui/Sidebar/" .. TW .. "/Inventory_On_" .. TW .. ".png")
+    o.drillsIcon   = getTexture("media/ui/Sidebar/" .. TW .. "/Build_On_"     .. TW .. ".png")
+
+    o.tooltip = ISToolTip:new()
+    o.tooltip:initialise()
+    o.tooltip:setVisible(false)
     return o
 end
 
 function P:reloadSidebarOptions()
-    local width = getTextureDimension()
-    self.iconWidth = width
-    self.iconHeight = math.floor(width * 0.75)  -- match vanilla 48x36 / 64x48 etc.
-    -- Inventory_On for Practice (items theme), Build_On for Drills (work/combat theme).
-    -- These icons are also used elsewhere in vanilla but are placed at different points
-    -- on the sidebar so visual collision is minimal at our anchor (next to healthBtn).
-    self.practiceIcon = getTexture("media/ui/Sidebar/" .. width .. "/Inventory_On_" .. width .. ".png")
-    self.drillsIcon   = getTexture("media/ui/Sidebar/" .. width .. "/Build_On_"     .. width .. ".png")
-    -- Two icons side by side.
-    self:setWidth((width * 2) + PMP.IconSpacing)
-    self:setHeight(self.iconHeight)
+    local TW = getTextureWidth()
+    local TH = math.floor(TW * 0.75)
+    self.TEXTURE_WIDTH = TW
+    self.TEXTURE_HEIGHT = TH
+    self:setWidth((TW * 2) + PMP.IconSpacing)
+    self:setHeight(TH)
+    self.practiceIcon = getTexture("media/ui/Sidebar/" .. TW .. "/Inventory_On_" .. TW .. ".png")
+    self.drillsIcon   = getTexture("media/ui/Sidebar/" .. TW .. "/Build_On_"     .. TW .. ".png")
 end
 
-local function slotX(panel, slot)  -- slot 0 = Practice, slot 1 = Drills
-    return slot * (panel.iconWidth + PMP.IconSpacing)
-end
-
-function P:isHoveredOverSlot(slot)
-    if not self:isVisible() then return false end
-    local mx, my = getMouseX(), getMouseY()
-    local x = self:getAbsoluteX() + slotX(self, slot)
-    local y = self:getAbsoluteY()
-    return mx >= x and mx <= x + self.iconWidth and my >= y and my <= y + self.iconHeight
-end
+local function practiceX(panel) return 0 end
+local function drillsX(panel)   return panel.TEXTURE_WIDTH + PMP.IconSpacing end
 
 function P:render()
-    self:drawTexture(self.practiceIcon, slotX(self, 0), 0, 1, 1, 1, 1)
-    self:drawTexture(self.drillsIcon,   slotX(self, 1), 0, 1, 1, 1, 1)
-    if self:isHoveredOverSlot(0) then self:showTooltip("Practice (Tailoring, Reloading, First Aid, etc.)") end
-    if self:isHoveredOverSlot(1) then self:showTooltip("Drills (weapon shadow-swings, dry-fire)") end
+    local TW, TH = self.TEXTURE_WIDTH, self.TEXTURE_HEIGHT
+    if self.practiceIcon then
+        self:drawTextureScaled(self.practiceIcon, practiceX(self), 0, TW, TH, 1, 1, 1, 1)
+    end
+    if self.drillsIcon then
+        self:drawTextureScaled(self.drillsIcon,   drillsX(self),   0, TW, TH, 1, 1, 1, 1)
+    end
 end
 
 function P:showTooltip(text)
     if not text then return end
-    if not self.tooltip then
-        self.tooltip = ISToolTip:new()
-        self.tooltip:initialise()
-        self.tooltip:instantiate()
-        self.tooltip:setOwner(self)
-        self.tooltip:setWidth(180)
-        self.tooltip:doLayout()
+    self.tooltip.description = text
+    if not self.tooltip:getIsVisible() then
+        self.tooltip:setVisible(true)
+        self.tooltip:addToUIManager()
     end
-    self.tooltip:setDescription(text)
-    self.tooltip:setVisible(true)
-    self.tooltip:addToUIManager()
-    self.tooltip:bringToTop()
+    self.tooltip:setX(getMouseX() + 16)
+    self.tooltip:setY(getMouseY() + 16)
 end
 
 function P:hideTooltip()
-    if not (self.tooltip and self.tooltip:isVisible()) then return end
-    self.tooltip:removeFromUIManager()
-    self.tooltip:setVisible(false)
+    if self.tooltip and self.tooltip:getIsVisible() then
+        self.tooltip:setVisible(false)
+        self.tooltip:removeFromUIManager()
+    end
 end
 
-function P:onMouseMove(_, _) return true end
-function P:onMouseMoveOutside(_, _) self:hideTooltip(); return true end
+function P:onMouseMove(_, _)
+    local TW = self.TEXTURE_WIDTH
+    local x = self:getMouseX()
+    if x >= practiceX(self) and x < practiceX(self) + TW then
+        self:showTooltip("Practice (Tailoring, Reloading, First Aid, etc.)")
+    elseif x >= drillsX(self) and x < drillsX(self) + TW then
+        self:showTooltip("Drills (weapon shadow-swings, dry-fire)")
+    else
+        self:hideTooltip()
+    end
+    return true
+end
 
-function P:onMouseDown(x, y)
+function P:onMouseMoveOutside(_, _)
     self:hideTooltip()
-    if self:isHoveredOverSlot(0) then
-        PMP.logInfo("Opening Practice UI from sidebar icon")
+    return true
+end
+
+function P:onMouseUp(mx, my)
+    self:hideTooltip()
+    local TW = self.TEXTURE_WIDTH
+    if mx >= practiceX(self) and mx < practiceX(self) + TW then
+        PMP.logInfo("Opening Practice UI from sidebar")
         PracticeMakesPerfect_PracticeUI.openFor(self.player)
         return true
     end
-    if self:isHoveredOverSlot(1) then
-        PMP.logInfo("Opening Drills UI from sidebar icon")
+    if mx >= drillsX(self) and mx < drillsX(self) + TW then
+        PMP.logInfo("Opening Drills UI from sidebar")
         PracticeMakesPerfect_DrillsUI.openFor(self.player)
         return true
     end
     return true
+end
+
+-- Whether a PMP-owned UI is currently visible. Used by SidebarPatch to keep the popup
+-- on screen while the user is interacting with it.
+function P:isAnyOwnedWindowOpen()
+    local pUI = PracticeMakesPerfect_PracticeUI and PracticeMakesPerfect_PracticeUI.instance and PracticeMakesPerfect_PracticeUI.instance[self.playerNum + 1]
+    local dUI = PracticeMakesPerfect_DrillsUI and PracticeMakesPerfect_DrillsUI.instance and PracticeMakesPerfect_DrillsUI.instance[self.playerNum + 1]
+    if pUI and pUI.isVisible and pUI:isVisible() then return true end
+    if dUI and dUI.isVisible and dUI:isVisible() then return true end
+    return false
 end

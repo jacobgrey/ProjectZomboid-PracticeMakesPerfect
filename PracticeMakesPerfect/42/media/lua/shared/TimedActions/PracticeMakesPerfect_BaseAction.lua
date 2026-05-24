@@ -3,12 +3,15 @@ require "Definitions/PracticeMakesPerfect_Log"
 
 PracticeMakesPerfect_BaseAction = ISBaseTimedAction:derive("PracticeMakesPerfect_BaseAction")
 
+-- Use in-game time, matching vanilla ISFitnessAction. The duration in the UI is
+-- expressed in in-game minutes (10..60), and 60000 ms == 1 in-game minute. Verified
+-- against vanilla ISFitnessAction.lua and Fishing/BuildingObjects/FishingNet.lua.
 function PracticeMakesPerfect_BaseAction:new(character, drillKey, drill, durationMinutes)
     local o = ISBaseTimedAction.new(self, character)
     o.drillKey = drillKey
     o.drill = drill
     o.durationMinutes = durationMinutes or 10
-    o.startMS = getTimestampMs()
+    o.startMS = getGameTime():getCalender():getTimeInMillis()
     o.endMS = o.startMS + (durationMinutes * 60000)
     o.maxTime = 5000000
     o.stopOnWalk = true
@@ -16,14 +19,14 @@ function PracticeMakesPerfect_BaseAction:new(character, drillKey, drill, duratio
     o.caloriesModifier = 4
     o.repnb = 0
     o.lastBoredomTick = o.startMS
-    PMP.logInfo("Action constructed: drill=%s duration=%dm periodMs=%d sittable=%s allowAiming=%s",
+    PMP.logInfo("Action constructed: drill=%s duration=%d gameMin periodMs=%d sittable=%s allowAiming=%s",
         drillKey, o.durationMinutes, drill.periodMs or 1500,
         tostring(drill.sittable), tostring(drill.allowAiming))
     return o
 end
 
 function PracticeMakesPerfect_BaseAction:isValid()
-    if getTimestampMs() >= self.endMS then return false end
+    if getGameTime():getCalender():getTimeInMillis() >= self.endMS then return false end
     return true
 end
 
@@ -171,11 +174,11 @@ function PracticeMakesPerfect_BaseAction:applyBoredomTick()
     if not PMP.getSandboxOption("ExerciseIncreasesBoredom") then return end
     local stats = self.character:getStats()
     if not stats or not CharacterStat or not CharacterStat.BOREDOM then return end
-    local now = getTimestampMs()
-    local elapsedSec = (now - self.lastBoredomTick) / 1000
+    local now = getGameTime():getCalender():getTimeInMillis()
+    local elapsedGameMin = (now - self.lastBoredomTick) / 60000
     self.lastBoredomTick = now
     local bpm = PMP.getSandboxOption("BoredomPerMinute") or 0.5
-    stats:add(CharacterStat.BOREDOM, bpm * (elapsedSec / 60))
+    stats:add(CharacterStat.BOREDOM, bpm * elapsedGameMin)
 end
 
 function PracticeMakesPerfect_BaseAction:cancelWith(reason)
@@ -190,8 +193,8 @@ function PracticeMakesPerfect_BaseAction:update()
     if not self.drill.sittable and self.character:isSittingOnFurniture() then return self:cancelWith("sat_down") end
     if self.character:pressedMovement(true) then return self:cancelWith("movement_input") end
     if self.character:getMoodles():getMoodleLevel(MoodleType.ENDURANCE) > 2 then return self:cancelWith("endurance_exhausted") end
-    if getTimestampMs() >= self.endMS then
-        PMP.logInfo("Action complete: drill=%s reps=%d", self.drillKey, self.repnb)
+    if getGameTime():getCalender():getTimeInMillis() >= self.endMS then
+        PMP.logInfo("Action complete (timer reached): drill=%s reps=%d", self.drillKey, self.repnb)
         self:forceComplete()
         return
     end

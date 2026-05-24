@@ -16,24 +16,35 @@ function G.hasTypeRecurse(player, fullType)
     return inv(player):containsTypeRecurse(fullType)
 end
 
--- B42's containsTagRecurse(...) takes an ItemTag enum, NOT a string. Recipe scripts use
--- string tags like "knittingneedles" but the Lua side has no string-keyed lookup. We
--- iterate items recursively and compare against the tag list returned by item:getTags()
--- (which is a Java collection of strings).
-function G.hasTagRecurse(player, tagString)
-    return inv(player):getFirstEvalRecurse(function(it)
-        if not it then return false end
-        local tags = it.getTags and it:getTags()
-        if not tags then return false end
-        for i = 0, tags:size() - 1 do
-            if tags:get(i) == tagString then return true end
-        end
-        return false
-    end) ~= nil
+-- B42's containsTagRecurse(ItemTag) requires the enum, and iterating item:getTags() as
+-- a string list crashes in vanilla (no precedent for it). Use explicit type lists.
+local function anyTypeRecurse(player, types)
+    for _, t in ipairs(types) do
+        if inv(player):containsTypeRecurse(t) then return true end
+    end
+    return false
 end
 
+local KNITTING_NEEDLE_TYPES = {
+    "Base.KnittingNeedles",
+    "Base.KnittingNeedles_Bone",
+    "Base.KnittingNeedles_Wood",
+}
+
+local FABRIC_SCRAP_TYPES = {
+    "Base.RippedSheets",
+    "Base.DenimStrips",
+    "Base.LeatherStrips",
+    "Base.RippedSheetsDirty",
+    "Base.DenimStripsDirty",
+}
+
+local SAND_TYPES = {
+    "Base.Sandbag",
+}
+
 function G.hasKnittingNeedlesAndYarn(player)
-    if not G.hasTagRecurse(player, "knittingneedles") then return false, "Need knitting needles" end
+    if not anyTypeRecurse(player, KNITTING_NEEDLE_TYPES) then return false, "Need knitting needles" end
     if not G.hasTypeRecurse(player, "Base.Yarn") then return false, "Need Yarn" end
     return true
 end
@@ -43,11 +54,7 @@ function G.hasNeedleThreadAndPatchableClothing(player)
         return false, "Need a needle"
     end
     if not G.hasTypeRecurse(player, "Base.Thread") then return false, "Need Thread" end
-    local fabric = G.hasTypeRecurse(player, "Base.RippedSheets")
-        or G.hasTypeRecurse(player, "Base.DenimStrips")
-        or G.hasTypeRecurse(player, "Base.LeatherStrips")
-        or G.hasTagRecurse(player, "fabricscraps")
-    if not fabric then return false, "Need fabric scraps" end
+    if not anyTypeRecurse(player, FABRIC_SCRAP_TYPES) then return false, "Need fabric scraps" end
     local clothing = firstItemMatchingRecurse(player, function(it)
         return instanceof(it, "Clothing")
     end)
@@ -170,10 +177,9 @@ end
 
 function G.hasGlassblowingSetup(player)
     if not G.hasTypeRecurse(player, "Base.GlassBlowingPipe") then return false, "Need a glass-blowing pipe" end
-    if not (G.hasTypeRecurse(player, "Base.CeramicCrucibleWithGlass") or G.hasTypeRecurse(player, "Base.Sand") or G.hasTagRecurse(player, "sand")) then
-        return false, "Need molten glass or sand"
-    end
-    return true
+    if G.hasTypeRecurse(player, "Base.CeramicCrucibleWithGlass") then return true end
+    if anyTypeRecurse(player, SAND_TYPES) then return true end
+    return false, "Need molten glass or sand"
 end
 
 function G.hasEquippedMeleeOfCategory(categoryKeyOrEnum, displayName)
