@@ -1,0 +1,35 @@
+module Base
+{
+    /* Inverse of every vanilla Knit* recipe in recipes_tailoring_knitting.txt.
+       Each of those recipes consumes exactly 1 Base.Yarn, so this single recipe
+       returns 1 Base.Yarn regardless of which knit item is consumed.
+       Items covered (verified against recipes_tailoring_knitting.txt):
+         KnitBalaclavaFace   -> Hat_BalaclavaFace
+         KnitBalaclavaFull   -> Hat_BalaclavaFull
+         KnitBeany           -> Hat_Beany
+         KnitDoily           -> Doily
+         KnitLegwarmers      -> Socks_LegWarmers
+         KnitScarf           -> Scarf_White
+         KnitSocks           -> Socks_Heavy
+         KnitSweaterVest     -> Jumper_TankTopTINT
+         KnitWoolyHat        -> Hat_WoolyHat
+       Time matches the vanilla knit time (200) so unraveling and re-knitting form
+       a balanced loop. Small Tailoring XP for the action itself. */
+    craftRecipe UnravelKnitItem
+    {
+        timedAction = Knitting,
+        time = 200,
+        Tags = InHandCraft,
+        category = Tailoring,
+        xpAward = Tailoring:3,
+        inputs
+        {
+            item 1 tags[base:knittingneedles] mode:keep,
+            item 1 [Base.Hat_BalaclavaFace;Base.Hat_BalaclavaFull;Base.Hat_Beany;Base.Doily;Base.Socks_LegWarmers;Base.Scarf_White;Base.Socks_Heavy;Base.Jumper_TankTopTINT;Base.Hat_WoolyHat] flags[InheritColor],
+        }
+        outputs
+        {
+            item 1 Base.Yarn,
+        }
+    }
+}
