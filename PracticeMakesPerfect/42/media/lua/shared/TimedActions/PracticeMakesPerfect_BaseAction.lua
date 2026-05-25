@@ -193,6 +193,15 @@ function PracticeMakesPerfect_BaseAction:update()
     if not self.drill.sittable and self.character:isSittingOnFurniture() then return self:cancelWith("sat_down") end
     if self.character:pressedMovement(true) then return self:cancelWith("movement_input") end
     if self.character:getMoodles():getMoodleLevel(MoodleType.ENDURANCE) > 2 then return self:cancelWith("endurance_exhausted") end
+
+    -- Drain endurance/calories via the same mechanism vanilla ISFitnessAction uses.
+    -- setMetabolicTarget is called every frame in vanilla update() so the Java side
+    -- has the current target rate. Verified API in ISFitnessAction.lua:51 and many
+    -- crafting/farming TimedActions.
+    if self.drill.metabolics then
+        self.character:setMetabolicTarget(self.drill.metabolics)
+    end
+
     if getGameTime():getCalender():getTimeInMillis() >= self.endMS then
         PMP.logInfo("Action complete (timer reached): drill=%s reps=%d", self.drillKey, self.repnb)
         self:forceComplete()

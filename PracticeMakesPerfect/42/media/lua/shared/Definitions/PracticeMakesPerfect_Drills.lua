@@ -21,14 +21,19 @@ end
 
 PMP.Drills.Practice = {
 
+    -- Rates target ~20-40 XP / 10 game min for Tailoring; vanilla squat (Fitness) is ~35
+    -- XP / 10 game min for reference. Metabolics chosen to mirror vanilla actions of
+    -- similar physical intensity (see Metabolics enum: LightDomestic, LightWork,
+    -- MediumWork, HeavyWork, FitnessHeavy).
     knit_unpick = {
         name = "Knit / Unpick",
         perk = Perks.Tailoring,
         anim = "Knitting",
-        periodMs = 200 * 17,
-        xpPerRep = 13,
+        periodMs = 3400,
+        xpPerRep = 2,
         sittable = true,
         levelCap = nil,
+        metabolics = Metabolics.LightDomestic,
         gate = Gates.hasKnittingNeedlesAndYarn,
         consume = {
             perRep = levelScaledLoss(0.15),
@@ -40,10 +45,11 @@ PMP.Drills.Practice = {
         name = "Patch / Unpatch",
         perk = Perks.Tailoring,
         anim = "SewingCloth",
-        periodMs = 150 * 17,
-        xpPerRep = 4,
+        periodMs = 2550,
+        xpPerRep = 2,
         sittable = true,
         levelCap = nil,
+        metabolics = Metabolics.LightDomestic,
         gate = Gates.hasNeedleThreadAndPatchableClothing,
     },
 
@@ -53,9 +59,10 @@ PMP.Drills.Practice = {
         anim = "InsertBullets",
         animAlternate = "RemoveBullets",
         periodMs = 1500,
-        xpPerRep = 2,
+        xpPerRep = 1,
         sittable = true,
         levelCap = nil,
+        metabolics = Metabolics.LightWork,
         gate = Gates.hasReloadableFirearmOrMagazineWithAmmo,
     },
 
@@ -63,10 +70,11 @@ PMP.Drills.Practice = {
         name = "Field-strip / Reassemble",
         perk = Perks.Maintenance,
         anim = "disassemble",
-        periodMs = 2000,
-        xpPerRep = 8,
+        periodMs = 2500,
+        xpPerRep = 3,
         sittable = true,
         levelCap = nil,
+        metabolics = Metabolics.LightWork,
         gate = Gates.hasFirearmAny,
         toolWear = { perRep = 0.005 },
     },
@@ -75,10 +83,11 @@ PMP.Drills.Practice = {
         name = "Practice Bandaging",
         perk = Perks.Doctor,
         anim = "Bandage",
-        periodMs = 200 * 17,
-        xpPerRep = 5,
+        periodMs = 3400,
+        xpPerRep = 2,
         sittable = true,
         levelCap = 2,
+        metabolics = Metabolics.LightDomestic,
         gate = Gates.hasAnyBandage,
         consume = {
             perRep = levelScaledLoss(0.30),
@@ -90,11 +99,12 @@ PMP.Drills.Practice = {
         name = "Practice Splinting",
         perk = Perks.Doctor,
         anim = "Bandage",
-        periodMs = 140 * 17,
-        xpPerRep = 15,
+        periodMs = 2380,
+        xpPerRep = 4,
         sittable = true,
         levelMin = 3,
         levelCap = 6,
+        metabolics = Metabolics.LightWork,
         gate = Gates.hasSplintMaterials,
     },
 
@@ -102,11 +112,12 @@ PMP.Drills.Practice = {
         name = "Practice Suturing",
         perk = Perks.Doctor,
         anim = "Bandage",
-        periodMs = 150 * 17,
-        xpPerRep = 15,
+        periodMs = 2550,
+        xpPerRep = 5,
         sittable = true,
         levelMin = 7,
         levelCap = nil,
+        metabolics = Metabolics.LightWork,
         gate = Gates.hasSutureKitAndSubject,
         consume = {
             perRep = levelScaledLoss(0.04),
@@ -119,21 +130,25 @@ PMP.Drills.Practice = {
         perk = Perks.Fishing,
         anim = "fishingCast",
         periodMs = 3000,
-        xpPerRep = 7,
+        xpPerRep = 3,
         sittable = true,
         levelCap = 3,
+        metabolics = Metabolics.MediumWork,
         gate = Gates.hasFishingRod,
         toolWear = { perRep = 0.002 },
     },
 
+    -- Pottery: vanilla MakeClayBowl gives 15 XP per ~80-tick craft. Bringing down to
+    -- match vanilla rate as a passive in-place loop without producing items.
     work_the_wheel = {
         name = "Work the Wheel",
         perk = Perks.Pottery,
         anim = "Craft_PotteryWheel",
-        periodMs = 80 * 17,
-        xpPerRep = 15,
+        periodMs = 2000,
+        xpPerRep = 2,
         sittable = false,
         levelCap = nil,
+        metabolics = Metabolics.MediumWork,
         gate = Gates.hasPotteryWheelAndClay,
         consume = {
             perRep = levelScaledLoss(0.12),
@@ -141,14 +156,17 @@ PMP.Drills.Practice = {
         },
     },
 
+    -- Glass: vanilla MakeGlassJar gives 75 XP / 100-tick craft. As a passive in-place
+    -- loop we award a fraction per rep, since no jar is being produced.
     blow_glass = {
         name = "Blow Glass",
         perk = Perks.Glassmaking,
         anim = "BlowGlass",
-        periodMs = 100 * 17,
-        xpPerRep = 75,
+        periodMs = 2500,
+        xpPerRep = 8,
         sittable = false,
         levelCap = nil,
+        metabolics = Metabolics.HeavyWork,
         gate = Gates.hasGlassblowingSetup,
         consume = {
             perRep = levelScaledLoss(0.10),
@@ -157,6 +175,11 @@ PMP.Drills.Practice = {
     },
 }
 
+-- Drills: shadow-swings. periodMs matches a realistic weapon Swingtime (verified in
+-- vanilla weapon.txt -- e.g. SpadeHead has Swingtime=4.0 sec; lighter weapons ~2 sec).
+-- We pick conservative values rather than reading per-weapon stats at runtime; future
+-- pass could read the actual weapon's Swingtime via getScriptItem() if it's exposed.
+-- All Drills use FitnessHeavy metabolics, matching vanilla burpees / heavy lifts.
 PMP.Drills.Drills = {
 
     axe_drill = {
@@ -164,9 +187,10 @@ PMP.Drills.Drills = {
         perk = Perks.Axe,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "Axe",
-        periodMs = 1000,
+        periodMs = 2500,
         xpPerRep = 0.75,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.AXE, "an axe"),
     },
 
@@ -175,9 +199,10 @@ PMP.Drills.Drills = {
         perk = Perks.LongBlade,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "LongBlade",
-        periodMs = 900,
+        periodMs = 2200,
         xpPerRep = 0.75,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.LONG_BLADE, "a long blade"),
     },
 
@@ -186,9 +211,10 @@ PMP.Drills.Drills = {
         perk = Perks.SmallBlade,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "SmallBlade",
-        periodMs = 800,
+        periodMs = 1500,
         xpPerRep = 0.6,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.SMALL_BLADE, "a short blade"),
     },
 
@@ -197,9 +223,10 @@ PMP.Drills.Drills = {
         perk = Perks.Blunt,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "Blunt",
-        periodMs = 1100,
+        periodMs = 2500,
         xpPerRep = 0.75,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.BLUNT, "a long blunt"),
     },
 
@@ -208,9 +235,10 @@ PMP.Drills.Drills = {
         perk = Perks.SmallBlunt,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "SmallBlunt",
-        periodMs = 900,
+        periodMs = 1800,
         xpPerRep = 0.6,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.SMALL_BLUNT, "a short blunt"),
     },
 
@@ -219,9 +247,10 @@ PMP.Drills.Drills = {
         perk = Perks.Spear,
         useEquippedWeaponSwingAnim = true,
         weaponCategory = "Spear",
-        periodMs = 1100,
+        periodMs = 2200,
         xpPerRep = 0.75,
         sittable = false,
+        metabolics = Metabolics.FitnessHeavy,
         gate = Gates.hasEquippedMeleeOfCategory(WeaponCategory.SPEAR, "a spear"),
     },
 
@@ -236,6 +265,7 @@ PMP.Drills.Drills = {
         sittable = false,
         levelCap = 4,
         allowAiming = true,
+        metabolics = Metabolics.LightWork,
         gate = Gates.hasEquippedFirearm,
     },
 }
